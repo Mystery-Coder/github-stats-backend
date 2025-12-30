@@ -37,10 +37,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      
       try {
         const [statsRes, pinnedRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/stats/${username}`),
-          fetch(`http://localhost:8080/api/pinned/${username}`)
+          fetch(`${API_URL}/api/stats/${username}`),
+          fetch(`${API_URL}/api/pinned/${username}`)
         ]);
 
         if (!statsRes.ok || !pinnedRes.ok) throw new Error("Failed to fetch data");
