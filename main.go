@@ -159,20 +159,53 @@ func main() {
 					following {
 						totalCount
 					}
-					repositories(first: 100, ownerAffiliations: OWNER) {
+					repositories(first: 100, ownerAffiliations: OWNER, privacy: null) {
 						totalCount
 						nodes {
+							name
 							stargazers {
 								totalCount
 							}
 							forkCount
+							isPrivate
+							languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+								edges {
+									size
+									node {
+										name
+									}
+								}
+								totalSize
+							}
 						}
+					}
+					repositoriesContributedTo(first: 100, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
+						totalCount
+						nodes {
+							name
+							owner {
+								login
+							}
+							isPrivate
+						}
+					}
+					starredRepositories {
+						totalCount
 					}
 					contributionsCollection {
 						totalCommitContributions
 						totalPullRequestContributions
 						totalIssueContributions
 						totalRepositoryContributions
+						totalPullRequestReviewContributions
+						restrictedContributionsCount
+						contributionYears
+					}
+					pullRequests {
+						totalCount
+					}
+					issues {
+						totalCount
 					}
 				}
 			}
