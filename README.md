@@ -1,6 +1,6 @@
 # GitHub Stats Backend
 
-A lightweight Go backend service that fetches GitHub user statistics using the GitHub GraphQL API.
+A lightweight Go backend service that fetches GitHub user statistics using the GitHub GraphQL API. Includes a Next.js frontend dashboard.
 
 ## Features
 
@@ -47,6 +47,18 @@ A lightweight Go backend service that fetches GitHub user statistics using the G
    ```bash
    go run main.go
    ```
+
+## Frontend
+
+The frontend is a Next.js dashboard located in the `frontend/` directory.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
 
 ## Usage
 
