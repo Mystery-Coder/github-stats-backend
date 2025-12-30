@@ -1,4 +1,4 @@
-# GitHub Stats Backend
+# GitHub Stats
 
 A lightweight Go backend service that fetches GitHub user statistics using the GitHub GraphQL API. Includes a Next.js frontend dashboard.
 
@@ -28,8 +28,8 @@ A lightweight Go backend service that fetches GitHub user statistics using the G
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/Mystery-Coder/github-stats-backend.git
-   cd github-stats-backend
+   git clone https://github.com/Mystery-Coder/github-stats.git
+   cd github-stats
    ```
 
 2. Install dependencies

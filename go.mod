@@ -1,4 +1,4 @@
-module github.com/Mystery-Coder/github-stats-backend
+module github.com/Mystery-Coder/github-stats
 
 go 1.24.4
 
