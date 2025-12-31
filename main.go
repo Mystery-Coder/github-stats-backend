@@ -94,7 +94,7 @@ func main() {
 
 	// CORS Middleware
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://quizzo-angular.vercel.app", "http://localhost"},
+		AllowOrigins:     []string{"https://portfolio-site-five-neon.vercel.app", "http://localhost"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
