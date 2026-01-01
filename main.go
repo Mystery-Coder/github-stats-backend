@@ -164,13 +164,10 @@ func main() {
 					login
 					bio
 					avatarUrl
-					company
 					location
 					email
 					websiteUrl
-					twitterUsername
 					createdAt
-					pronouns
 					followers {
 						totalCount
 					}
@@ -208,9 +205,6 @@ func main() {
 							}
 							isPrivate
 						}
-					}
-					starredRepositories {
-						totalCount
 					}
 					contributionsCollection {
 						totalCommitContributions
