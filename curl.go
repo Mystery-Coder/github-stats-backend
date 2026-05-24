@@ -20,7 +20,20 @@ const (
 	avatarWidth  = 40
 	avatarHeight = 20
 	boxWidth     = 56
+
+	ansiReset      = "\033[0m"
+	ansiCyan       = "\033[36m"
+	ansiBoldCyan   = "\033[1;36m"
+	ansiYellow     = "\033[33m"
+	ansiBoldYellow = "\033[1;33m"
+	ansiGray       = "\033[90m"
+	ansiRed        = "\033[31m"
 )
+
+type avatarPixel struct {
+	Ch    byte
+	R, G, B uint8
+}
 
 type PinnedRepoData struct {
 	Name        string
@@ -95,7 +108,18 @@ func (c *GitHubClient) QueryInto(query string, variables map[string]interface{},
 	return json.Unmarshal(data, target)
 }
 
-func fetchAvatarASCII(username string) ([]string, error) {
+func hexToANSI(hex string) string {
+	if len(hex) < 7 || hex[0] != '#' {
+		return ""
+	}
+	var r, g, b uint8
+	if _, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
+}
+
+func fetchAvatarASCII(username string) ([][]avatarPixel, error) {
 	resp, err := http.Get(fmt.Sprintf("https://github.com/%s.png", username))
 	if err != nil {
 		return nil, fmt.Errorf("fetch: %w", err)
@@ -113,29 +137,31 @@ func fetchAvatarASCII(username string) ([]string, error) {
 
 	resized := resize.Resize(avatarWidth, avatarHeight, img, resize.Bilinear)
 
-	var lines []string
+	n := len(asciiChars) - 1
+	var rows [][]avatarPixel
 	bounds := resized.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		var b strings.Builder
+		var row []avatarPixel
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, bv, a := resized.At(x, y).RGBA()
+			r, g, b, a := resized.At(x, y).RGBA()
 			if a == 0 {
-				b.WriteByte(' ')
+				row = append(row, avatarPixel{Ch: ' '})
 				continue
 			}
-			gray := 0.299*float64(r/257) + 0.587*float64(g/257) + 0.114*float64(bv/257)
-			idx := int(gray * float64(len(asciiChars)-1) / 255)
-			if idx >= len(asciiChars) {
-				idx = len(asciiChars) - 1
+			r8, g8, b8 := uint8(r/257), uint8(g/257), uint8(b/257)
+			gray := 0.299*float64(r8) + 0.587*float64(g8) + 0.114*float64(b8)
+			idx := int(gray * float64(n) / 255)
+			if idx > n {
+				idx = n
 			}
 			if idx < 0 {
 				idx = 0
 			}
-			b.WriteByte(asciiChars[idx])
+			row = append(row, avatarPixel{Ch: asciiChars[idx], R: r8, G: g8, B: b8})
 		}
-		lines = append(lines, b.String())
+		rows = append(rows, row)
 	}
-	return lines, nil
+	return rows, nil
 }
 
 func getPinnedRepos(client *GitHubClient, username string) ([]PinnedRepoData, error) {
@@ -227,6 +253,9 @@ func getLanguageStats(client *GitHubClient, username string) ([]LanguageStatData
 		}
 		for _, edge := range node.Languages.Edges {
 			name := edge.Node.Name
+			if name == "Jupyter Notebook" {
+				continue
+			}
 			if entry, ok := langMap[name]; ok {
 				entry.size += int64(edge.Size)
 			} else {
@@ -272,16 +301,26 @@ func fmtLine(content string) string {
 	return "│ " + string(runes) + strings.Repeat(" ", inner-len(runes)) + " │"
 }
 
+func coloredLine(content, code string) string {
+	inner := boxWidth - 4
+	runes := []rune(content)
+	if len(runes) > inner {
+		runes = runes[:inner]
+	}
+	padded := string(runes) + strings.Repeat(" ", inner-len(runes))
+	return "│ " + code + padded + ansiReset + " │"
+}
+
 func boxTop() string {
-	return "┌" + strings.Repeat("─", boxWidth-2) + "┐"
+	return ansiCyan + "┌" + strings.Repeat("─", boxWidth-2) + "┐" + ansiReset
 }
 
 func boxDivider() string {
-	return "├" + strings.Repeat("─", boxWidth-2) + "┤"
+	return ansiCyan + "├" + strings.Repeat("─", boxWidth-2) + "┤" + ansiReset
 }
 
 func boxBottom() string {
-	return "└" + strings.Repeat("─", boxWidth-2) + "┘"
+	return ansiCyan + "└" + strings.Repeat("─", boxWidth-2) + "┘" + ansiReset
 }
 
 func langBar(pct float64, width int) string {
@@ -302,6 +341,24 @@ func centerText(s string, width int) string {
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", padding-left)
 }
 
+func renderAvatarRow(row []avatarPixel) string {
+	var b strings.Builder
+	lastR, lastG, lastB := uint8(0), uint8(0), uint8(0)
+	for _, p := range row {
+		if p.Ch == ' ' {
+			b.WriteByte(' ')
+			continue
+		}
+		if p.R != lastR || p.G != lastG || p.B != lastB {
+			fmt.Fprintf(&b, "\033[38;2;%d;%d;%dm", p.R, p.G, p.B)
+			lastR, lastG, lastB = p.R, p.G, p.B
+		}
+		b.WriteByte(p.Ch)
+	}
+	b.WriteString(ansiReset)
+	return b.String()
+}
+
 func curlHandler(client *GitHubClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.Param("username")
@@ -317,8 +374,8 @@ func curlHandler(client *GitHubClient) gin.HandlerFunc {
 		}
 
 		type avResult struct {
-			lines []string
-			err   error
+			pixels [][]avatarPixel
+			err    error
 		}
 		type prResult struct {
 			repos []PinnedRepoData
@@ -334,8 +391,8 @@ func curlHandler(client *GitHubClient) gin.HandlerFunc {
 		lsCh := make(chan lsResult, 1)
 
 		go func() {
-			lines, err := fetchAvatarASCII(username)
-			avCh <- avResult{lines, err}
+			pixels, err := fetchAvatarASCII(username)
+			avCh <- avResult{pixels, err}
 		}()
 		go func() {
 			repos, err := getPinnedRepos(client, username)
@@ -357,23 +414,27 @@ func curlHandler(client *GitHubClient) gin.HandlerFunc {
 		}
 
 		writeLine(boxTop())
-		writeLine(fmtLine(centerText("github.com/"+username, boxWidth-4)))
+		writeLine(coloredLine(centerText("github.com/"+username, boxWidth-4), ansiBoldCyan))
 		writeLine(boxDivider())
 
 		if avRes.err != nil {
-			writeLine(fmtLine(" avatar: " + avRes.err.Error()))
+			writeLine(coloredLine(" avatar: "+avRes.err.Error(), ansiRed))
 		} else {
 			padding := (boxWidth - 4 - avatarWidth) / 2
 			padStr := strings.Repeat(" ", padding)
-			for _, line := range avRes.lines {
-				writeLine(fmtLine(padStr + line))
+			for _, row := range avRes.pixels {
+				colored := renderAvatarRow(row)
+				line := "│ " + padStr + colored + padStr + " │"
+				fmt.Fprintln(w, line)
+				flusher.Flush()
+				time.Sleep(20 * time.Millisecond)
 			}
 		}
 		writeLine(boxDivider())
 
-		writeLine(fmtLine(" pinned repos"))
+		writeLine(coloredLine(" pinned repos", ansiBoldYellow))
 		if prRes.err != nil {
-			writeLine(fmtLine(" error fetching repos"))
+			writeLine(coloredLine(" error fetching repos", ansiRed))
 		} else if len(prRes.repos) == 0 {
 			writeLine(fmtLine(" no pinned repos"))
 		} else {
@@ -389,22 +450,23 @@ func curlHandler(client *GitHubClient) gin.HandlerFunc {
 		}
 		writeLine(boxDivider())
 
-		writeLine(fmtLine(" languages"))
+		writeLine(coloredLine(" languages", ansiBoldYellow))
 		if lsRes.err != nil {
-			writeLine(fmtLine(" error fetching languages"))
+			writeLine(coloredLine(" error fetching languages", ansiRed))
 		} else if len(lsRes.stats) == 0 {
 			writeLine(fmtLine(" no language data"))
 		} else {
 			for _, lang := range lsRes.stats {
 				bar := langBar(lang.Pct, 10)
 				s := fmt.Sprintf("  %-16s %s %5.1f%%", lang.Name, bar, lang.Pct)
-				writeLine(fmtLine(s))
+				c := hexToANSI(lang.Color)
+				writeLine(coloredLine(s, c))
 				time.Sleep(15 * time.Millisecond)
 			}
 		}
 		writeLine(boxDivider())
 
-		writeLine(fmtLine(centerText("generated by github-stats-backend", boxWidth-4)))
+		writeLine(coloredLine(centerText("generated by github-stats-backend", boxWidth-4), ansiGray))
 		writeLine(boxBottom())
 	}
 }
