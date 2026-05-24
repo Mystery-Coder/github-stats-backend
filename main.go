@@ -243,6 +243,9 @@ func main() {
 		c.JSON(http.StatusOK, resp.Data)
 	})
 
+	// Curl endpoint - ASCII art stats
+	r.GET("/api/curl/:username", curlHandler(ghClient))
+
 	// Health check
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
